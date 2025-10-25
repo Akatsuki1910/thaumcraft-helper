@@ -1,10 +1,11 @@
 import van from "vanjs-core";
+import * as vanX from "vanjs-ext";
 import { Hex } from "./hex";
 const { main, p, div, input, section, button } = van.tags;
-import * as vanX from "vanjs-ext";
 
 const Main = () => {
   const selectNum = van.state<number | null>(null);
+  const aspectNum = vanX.reactive<number[]>([...Array(56)].map(() => 0));
   const frames = vanX.reactive<number[]>(
     [...Array(11)].map(() => Array(10).fill(-2)).flat()
   );
@@ -52,21 +53,18 @@ const Main = () => {
         })
       ),
       section(
-        div(
-          { class: "aspects-grid" },
-          [...Array(56)].map((_, i) =>
-            div(
-              { class: "aspect-row" },
-              div({
-                class: `aspect-${i + 1}`,
-                ariaLabel: `Aspect ${i + 1}`,
-              }),
-              input({
-                class: "input-num",
-                type: "number",
-                value: 0,
-              })
-            )
+        vanX.list(div({ class: "aspects-grid" }), aspectNum, (v, _, i) =>
+          div(
+            { class: "aspect-row" },
+            div({
+              class: `aspect-${i + 1}`,
+              ariaLabel: `Aspect ${i + 1}`,
+            }),
+            input({
+              class: "input-num",
+              type: "number",
+              value: v,
+            })
           )
         )
       )
