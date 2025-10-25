@@ -1,0 +1,124 @@
+* {
+  margin: 0;
+}
+
+@mixin a($i) {
+  $y: floor($i / 16);
+  background-image: url("./T4aspects.png");
+  width: 32px;
+  height: 32px;
+  background-position: ($i * -32px) ($y * -32px);
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 50% 50%;
+}
+
+.hex-wrapper {
+  width: 100%;
+  overflow: scroll;
+}
+
+.hex-aspect-selector {
+  display: flex;
+  flex-direction: row;
+  overflow: scroll;
+}
+
+.hex-display {
+  position: relative;
+  height: 900px;
+}
+
+.hex {
+  width: 100px;
+  height: 100px;
+  position: relative;
+
+  &-button {
+    position: absolute;
+    width: 55px;
+    height: 55px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: none;
+    outline: none;
+    cursor: pointer;
+  }
+
+  &-item {
+    position: absolute;
+
+    &[data-num="-2"] {
+      .hex-button {
+        background-color: rgba($color: #000000, $alpha: 0.3);
+      }
+    }
+
+    &[data-num="-1"] {
+      .hex-button {
+        background-color: rgba($color: #000000, $alpha: 0.1);
+      }
+    }
+
+    @for $i from 0 through 55 {
+      &[data-num="#{$i}"] {
+        &::after {
+          content: "";
+          @include a($i + 1);
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          pointer-events: none;
+        }
+      }
+    }
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+}
+
+@for $i from 1 through 56 {
+  .aspect-#{$i} {
+    @include a($i);
+
+    &.button {
+      outline: none;
+      border: none;
+      padding: 0;
+      background-color: transparent;
+      cursor: pointer;
+
+      &:hover {
+        background-color: gray;
+      }
+
+      &.selected {
+        background-color: red;
+      }
+    }
+  }
+}
+
+.aspects-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.aspect-row {
+  display: flex;
+  flex-direction: row;
+  height: fit-content;
+}
+
+.input-num {
+  width: 50px;
+}

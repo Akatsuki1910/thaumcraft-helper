@@ -1,0 +1,19 @@
+{
+  "name": "thaumcraft-helper",
+  "type": "module",
+  "module": "./src/index.ts",
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "sass": "^1.89.2",
+    "typescript": "^5.8.3",
+    "vanjs-core": "^1.5.5",
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "vanjs-ext": "^0.6.3"
+  }
+}
