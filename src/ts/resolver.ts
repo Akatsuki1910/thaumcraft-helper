@@ -125,4 +125,12 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
   };
 
   resolveAnswer(aspectNum, frames, start, 0);
+
+  const trueAnswers = answer.filter(
+    (v) => v.steps === Math.min(...answer.map((vv) => vv.steps))
+  );
+
+  console.log("Answers found:", trueAnswers);
+
+  return trueAnswers;
 };

@@ -6,6 +6,34 @@ import { HEX_WIDTH, HEX_HEIGHT } from "./ts/hexUtil";
 import { hexResolver } from "./ts/resolver";
 const { main, p, div, input, section, button } = van.tags;
 
+const ViewHexCell = (
+  i: number,
+  num: number,
+  isMini: boolean,
+  fn?: () => void
+) => {
+  const size = isMini ? 1 / 2 : 1;
+
+  return div(
+    {
+      class: `hex-item`,
+      "data-num": num ?? -2,
+      style: Object.entries({
+        top: `${
+          Math.floor(i / HEX_WIDTH) * 82 * size +
+          ((i % HEX_WIDTH) % 2) * 40 * size
+        }px`,
+        left: `${(i % HEX_WIDTH) * 72 * size}px`,
+      })
+        .map((k) => `${k[0]}:${k[1]};`)
+        .join(""),
+    },
+    Hex(() => {
+      fn && fn();
+    })
+  );
+};
+
 const Main = () => {
   const selectNum = van.state<number | null>(null);
   const aspectNum = vanX.reactive<number[]>(
@@ -14,6 +42,7 @@ const Main = () => {
   const frames = vanX.reactive<number[]>(
     [...Array(HEX_WIDTH)].map(() => Array(HEX_HEIGHT).fill(-2)).flat()
   );
+  let answers = van.state<ReturnType<typeof hexResolver>>([]);
 
   const isDisabled = van.derive(() => {
     const num = aspectNum.reduce((acc, v) => acc + v, 0);
@@ -58,31 +87,17 @@ const Main = () => {
           )
         ),
         vanX.list(div({ class: "hex-display" }), frames, (v, _, i) => {
-          return div(
-            {
-              class: `hex-item`,
-              "data-num": v ?? -2,
-              style: Object.entries({
-                top: `${
-                  Math.floor(i / HEX_WIDTH) * 82 + ((i % HEX_WIDTH) % 2) * 40
-                }px`,
-                left: `${(i % HEX_WIDTH) * 72}px`,
-              })
-                .map((k) => `${k[0]}:${k[1]};`)
-                .join(""),
-            },
-            Hex(() => {
-              if (selectNum.val) {
-                v.val = selectNum.val ?? -1;
-                selectNum.val = null;
-              } else if (v.val !== -2) {
-                v.val = -2;
-              } else {
-                v.val = selectNum.val ?? -1;
-                selectNum.val = null;
-              }
-            })
-          );
+          return ViewHexCell(i, v.val, false, () => {
+            if (selectNum.val) {
+              v.val = selectNum.val ?? -1;
+              selectNum.val = null;
+            } else if (v.val !== -2) {
+              v.val = -2;
+            } else {
+              v.val = selectNum.val ?? -1;
+              selectNum.val = null;
+            }
+          });
         })
       ),
       section(
@@ -109,10 +124,8 @@ const Main = () => {
         () =>
           button(
             {
-              class: "reset-button button",
               onclick: () => {
-                console.log("Resolving...");
-                hexResolver(
+                answers.val = hexResolver(
                   aspectNum.map((v) => v),
                   frames.map((v) => v)
                 );
@@ -120,6 +133,16 @@ const Main = () => {
               disabled: isDisabled.val,
             },
             "resolve"
+          ),
+        () =>
+          div(
+            { class: "answer-wrapper" },
+            answers.val.map((v) =>
+              div(
+                { class: "hex-display", "data-mini": true },
+                v.frame.map((vv, l) => ViewHexCell(l, vv, true))
+              )
+            )
           )
       )
     )
