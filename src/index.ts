@@ -146,6 +146,17 @@ const Main = () => {
             },
             "resolve"
           ),
+
+        button(
+          {
+            onclick: () => {
+              aspectNum.forEach((v, i) => {
+                aspectNum[i] += 10;
+              });
+            },
+          },
+          "all 10 up"
+        ),
         () =>
           p(
             `Progress: ${progressData.val.now} / ${progressData.val.all} (Step: ${progressData.val.step})`
