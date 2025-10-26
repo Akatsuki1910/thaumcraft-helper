@@ -1,7 +1,11 @@
 import { ASPECT_NUM, LINKS_MAP } from "./aspectUti";
 import { HEX_HEIGHT, HEX_WIDTH } from "./hexUtil";
 
-export const hexResolver = (aspectNum: number[], frames: number[]) => {
+export const hexResolver = (
+  aspectNum: number[],
+  frames: number[],
+  progress: (step: number, all: number, now: number) => void
+) => {
   let start: [number, number] = [-1, -1];
   let goal: [number, number][] = [];
   for (let i = 0; i < frames.length; i++) {
@@ -18,6 +22,7 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
   }
 
   const answer: {
+    aspect: number[];
     frame: number[];
     steps: number;
   }[] = [];
@@ -40,23 +45,23 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
 
     if (s[0] < HEX_WIDTH - 1 && s[1] - ((s[0] + 1) % 2) >= 0) {
       const x = s[0] + 1;
+      const y = s[1] - 1;
+      fn(x, y);
+    }
+
+    if (s[0] < HEX_WIDTH - 1) {
+      const x = s[0] + 1;
       const y = s[1];
       fn(x, y);
     }
 
-    if (s[0] < HEX_WIDTH - 1 && s[1] - ((s[0] + 1) % 2) < HEX_HEIGHT - 1) {
-      const x = s[0] + 1;
-      const y = s[1] + 1;
-      fn(x, y);
-    }
-
-    if (s[0] > 0 && s[1] - (s[0] % 2) >= 0) {
+    if (s[0] > 0 && s[1] - ((s[0] - 1) % 2) >= 0) {
       const x = s[0] - 1;
       const y = s[1] - 1;
       fn(x, y);
     }
 
-    if (s[0] > 0 && s[1] - (s[0] % 2) < HEX_HEIGHT - 1) {
+    if (s[0] > 0) {
       const x = s[0] - 1;
       const y = s[1];
       fn(x, y);
@@ -64,7 +69,7 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
   };
 
   const goalCheck = (f: number[], s: [number, number]) => {
-    f[s[0] + s[1] * HEX_WIDTH] = -2;
+    const sd = f[s[0] + s[1] * HEX_WIDTH];
     if (s[0] === start[0] && s[1] === start[1]) {
       return true;
     }
@@ -74,14 +79,15 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
       if (flg) return;
 
       const d = f[x + y * HEX_WIDTH];
-      if (d > 0) {
+      if (d > 0 && LINKS_MAP.get(sd)?.has(d)) {
+        f[s[0] + s[1] * HEX_WIDTH] = -2;
         flg = goalCheck(f, [x, y]);
       }
     });
     return flg;
   };
 
-  const resolveAnswer = (
+  const loopResolveAnswer = (
     an: number[],
     f: number[],
     s: [number, number],
@@ -89,17 +95,39 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
   ) => {
     const sd = f[s[0] + s[1] * HEX_WIDTH];
 
-    if (
-      goal.some((g) => s[0] === g[0] && s[1] === g[1]) &&
-      goal.every((g) => goalCheck([...f], g))
-    ) {
-      answer.push({ frame: f, steps: step });
+    if (goal.every((g) => goalCheck([...f], g))) {
+      answer.push({ aspect: an, frame: f, steps: step });
       return;
     }
 
+    if (answer.length > 0) return;
+
+    const nextData: { cpAn: number[]; cpF: number[]; x: number; y: number }[] =
+      [];
     hexCheck(s, (x, y) => {
-      commonResolveAnswer(x, y, sd, an, f, step);
+      const d = commonResolveAnswer(x, y, sd, an, f);
+      nextData.push(...d);
     });
+
+    return nextData;
+  };
+
+  const resolveAnswer = (an: number[], f: number[], s: [number, number]) => {
+    let step = 0;
+    let nextData = loopResolveAnswer(an, f, s, step) ?? [];
+    while (true) {
+      step++;
+      if (nextData.length === 0) break;
+      const currentData = nextData;
+      nextData = [];
+      currentData.forEach((v, l) => {
+        progress(step, currentData.length, l + 1);
+        const res = loopResolveAnswer(v.cpAn, v.cpF, [v.x, v.y], step);
+        if (res) {
+          nextData.push(...res);
+        }
+      });
+    }
   };
 
   const commonResolveAnswer = (
@@ -107,9 +135,11 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
     y: number,
     sd: number,
     an: Parameters<typeof resolveAnswer>[0],
-    f: Parameters<typeof resolveAnswer>[1],
-    step: Parameters<typeof resolveAnswer>[3]
+    f: Parameters<typeof resolveAnswer>[1]
   ) => {
+    const nextData: { cpAn: typeof an; cpF: typeof f; x: number; y: number }[] =
+      [];
+
     const d = f[x + y * HEX_WIDTH];
     if (d === -1) {
       for (let i = 0; i < an.length; i++) {
@@ -120,20 +150,33 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
             cpAn[i]--;
             const cpF = [...f];
             cpF[x + y * HEX_WIDTH] = ASPECT_NUM[i];
-            resolveAnswer(cpAn, cpF, [x, y], step + 1);
+            nextData.push({ cpAn, cpF, x, y });
           }
         }
       }
     }
+
+    return nextData;
   };
 
-  resolveAnswer(aspectNum, frames, start, 0);
+  resolveAnswer(aspectNum, frames, start);
 
-  const trueAnswers = answer.filter(
-    (v) => v.steps === Math.min(...answer.map((vv) => vv.steps))
-  );
+  const trueAnswers = [
+    ...answer
+      .filter((v) => v.steps === Math.min(...answer.map((vv) => vv.steps)))
+      .reduce((acc, v) => {
+        const key = v.aspect.join(",");
+        if (!acc.has(key)) {
+          acc.set(key, v);
+        }
 
-  console.log("Answers found:", trueAnswers);
+        return acc;
+      }, new Map<string, (typeof answer)[number]>())
+      .values(),
+  ].map((v) => ({
+    frame: v.frame,
+    steps: v.steps,
+  }));
 
   return trueAnswers;
 };

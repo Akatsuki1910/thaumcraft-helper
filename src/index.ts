@@ -4,7 +4,7 @@ import { Hex } from "./hex";
 import { ASPECT_NUM } from "./ts/aspectUti";
 import { HEX_WIDTH, HEX_HEIGHT } from "./ts/hexUtil";
 import { hexResolver } from "./ts/resolver";
-const { main, div, input, section, button } = van.tags;
+const { main, p, div, input, section, button } = van.tags;
 
 const ViewHexCell = (
   i: number,
@@ -43,6 +43,12 @@ const Main = () => {
     [...Array(HEX_WIDTH)].map(() => Array(HEX_HEIGHT).fill(-2)).flat()
   );
   let answers = van.state<ReturnType<typeof hexResolver>>([]);
+
+  let progressData = van.state<{ step: number; all: number; now: number }>({
+    step: 0,
+    all: 0,
+    now: 0,
+  });
 
   const isDisabled = van.derive(() => {
     const num = aspectNum.reduce((acc, v) => acc + v, 0);
@@ -112,6 +118,8 @@ const Main = () => {
               class: "input-num",
               type: "number",
               value: v,
+              min: 0,
+              step: 1,
               onchange: (e) => {
                 const val = parseInt((e.target as HTMLInputElement).value, 10);
                 if (!isNaN(val)) {
@@ -127,12 +135,20 @@ const Main = () => {
               onclick: () => {
                 answers.val = hexResolver(
                   aspectNum.map((v) => v),
-                  frames.map((v) => v)
+                  frames.map((v) => v),
+                  (step, all, now) => {
+                    // console.log("Progress:", { step, all, now });
+                    progressData.val = { step, all, now };
+                  }
                 );
               },
               disabled: isDisabled.val,
             },
             "resolve"
+          ),
+        () =>
+          p(
+            `Progress: ${progressData.val.now} / ${progressData.val.all} (Step: ${progressData.val.step})`
           ),
         () =>
           div(
