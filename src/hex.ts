@@ -2,7 +2,7 @@ import van from "vanjs-core";
 const { div, button } = van.tags;
 const { svg, polygon } = van.tags("http://www.w3.org/2000/svg");
 
-export const Hex = (fn: () => void) => {
+export const Hex = (fn?: () => void) => {
   return div(
     { class: "hex" },
     svg(
@@ -21,9 +21,10 @@ export const Hex = (fn: () => void) => {
         "stroke-width": "1",
       })
     ),
-    button({
-      class: "hex-button",
-      onclick: fn,
-    })
+    fn &&
+      button({
+        class: "hex-button",
+        onclick: fn,
+      })
   );
 };

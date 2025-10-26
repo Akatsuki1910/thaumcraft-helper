@@ -10,9 +10,23 @@ const ViewHexCell = (
   i: number,
   num: number,
   isMini: boolean,
-  fn?: () => void
+  fn?: () => void,
+  sizeMinMax?: {
+    min: {
+      x: number;
+      y: number;
+    };
+    max: {
+      x: number;
+      y: number;
+    };
+  }
 ) => {
   const size = isMini ? 1 / 2 : 1;
+
+  if (num === -2 && !fn) {
+    return div();
+  }
 
   return div(
     {
@@ -20,17 +34,17 @@ const ViewHexCell = (
       "data-num": num ?? -2,
       style: Object.entries({
         top: `${
-          Math.floor(i / HEX_WIDTH) * 82 * size +
-          ((i % HEX_WIDTH) % 2) * 40 * size
+          Math.floor((i - (sizeMinMax?.min.y ?? 0) * HEX_WIDTH) / HEX_WIDTH) *
+            82 *
+            size +
+          (((i - (sizeMinMax?.min.x ?? 0)) % HEX_WIDTH) % 2) * 40 * size
         }px`,
-        left: `${(i % HEX_WIDTH) * 72 * size}px`,
+        left: `${((i - (sizeMinMax?.min.x ?? 0)) % HEX_WIDTH) * 72 * size}px`,
       })
         .map((k) => `${k[0]}:${k[1]};`)
         .join(""),
     },
-    Hex(() => {
-      fn && fn();
-    })
+    Hex(fn)
   );
 };
 
@@ -49,6 +63,26 @@ const Main = () => {
     step: 0,
     all: 0,
     now: 0,
+  });
+
+  const sizeMinMax = vanX.reactive<{
+    min: {
+      x: number;
+      y: number;
+    };
+    max: {
+      x: number;
+      y: number;
+    };
+  }>({
+    min: {
+      x: -1,
+      y: -1,
+    },
+    max: {
+      x: -1,
+      y: -1,
+    },
   });
 
   const isDisabled = van.derive(() => {
@@ -137,8 +171,30 @@ const Main = () => {
                 if (isResolving.val) return;
 
                 isResolving.val = true;
-                // プログレスをリセット
                 progressData.val = { step: 0, all: 0, now: 0 };
+
+                for (let i = 0; i < frames.length; i++) {
+                  const x = i % HEX_WIDTH;
+                  const y = Math.floor(i / HEX_WIDTH);
+                  const a = frames[i];
+
+                  if (a !== -2) {
+                    if (sizeMinMax.min.x === -1 || x < sizeMinMax.min.x) {
+                      sizeMinMax.min.x = x;
+                    }
+                    if (sizeMinMax.min.y === -1 || y < sizeMinMax.min.y) {
+                      sizeMinMax.min.y = y;
+                    }
+                    if (sizeMinMax.max.x === -1 || x > sizeMinMax.max.x) {
+                      sizeMinMax.max.x = x;
+                    }
+                    if (sizeMinMax.max.y === -1 || y > sizeMinMax.max.y) {
+                      sizeMinMax.max.y = y;
+                    }
+                  }
+                }
+
+                console.log("Size MinMax:", sizeMinMax);
 
                 try {
                   answers.val = await hexResolver(
@@ -158,7 +214,6 @@ const Main = () => {
             },
             () => (isResolving.val ? "処理中..." : "resolve")
           ),
-
         button(
           {
             onclick: () => {
@@ -166,8 +221,18 @@ const Main = () => {
                 aspectNum[i] += 10;
               });
             },
+            disabled: () => isResolving.val,
           },
           "all 10 up"
+        ),
+        button(
+          {
+            onclick: () => {
+              answers.val = [];
+            },
+            disabled: () => isResolving.val,
+          },
+          "reset"
         ),
         () =>
           div(
@@ -206,8 +271,24 @@ const Main = () => {
             { class: "answer-wrapper" },
             answers.val.map((v) =>
               div(
-                { class: "hex-display", "data-mini": true },
-                v.frame.map((vv, l) => ViewHexCell(l, vv, true))
+                {
+                  class: "hex-display",
+                  "data-mini": true,
+                  style: Object.entries({
+                    width: `${
+                      (sizeMinMax.max.x - sizeMinMax.min.x + 0.5) * (72 / 2) +
+                      28
+                    }px`,
+                    height: `${
+                      (sizeMinMax.max.y - sizeMinMax.min.y + 0.5) * 50
+                    }px`,
+                  })
+                    .map((k) => `${k[0]}:${k[1]};`)
+                    .join(""),
+                },
+                v.frame.map((vv, l) =>
+                  ViewHexCell(l, vv, true, undefined, sizeMinMax)
+                )
               )
             )
           )
