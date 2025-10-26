@@ -2,6 +2,8 @@ import van from "vanjs-core";
 import * as vanX from "vanjs-ext";
 import { Hex } from "./hex";
 import { ASPECT_NUM } from "./ts/aspectUti";
+import { HEX_WIDTH, HEX_HEIGHT } from "./ts/hexUtil";
+import { hexResolver } from "./ts/resolver";
 const { main, p, div, input, section, button } = van.tags;
 
 const Main = () => {
@@ -10,7 +12,7 @@ const Main = () => {
     [...Array(ASPECT_NUM.length)].map(() => 0)
   );
   const frames = vanX.reactive<number[]>(
-    [...Array(11)].map(() => Array(10).fill(-2)).flat()
+    [...Array(HEX_WIDTH)].map(() => Array(HEX_HEIGHT).fill(-2)).flat()
   );
 
   const isDisabled = van.derive(() => {
@@ -28,11 +30,10 @@ const Main = () => {
       }
     );
 
-    console.log({ num, frameCount });
     return !(
       num !== 0 &&
       frameCount.empty !== 0 &&
-      num > frameCount.empty &&
+      num >= frameCount.empty &&
       frameCount.filled >= 2
     );
   });
@@ -62,8 +63,10 @@ const Main = () => {
               class: `hex-item`,
               "data-num": v ?? -2,
               style: Object.entries({
-                top: `${Math.floor(i / 11) * 82 + ((i % 11) % 2) * 40}px`,
-                left: `${(i % 11) * 72}px`,
+                top: `${
+                  Math.floor(i / HEX_WIDTH) * 82 + ((i % HEX_WIDTH) % 2) * 40
+                }px`,
+                left: `${(i % HEX_WIDTH) * 72}px`,
               })
                 .map((k) => `${k[0]}:${k[1]};`)
                 .join(""),
@@ -107,7 +110,13 @@ const Main = () => {
           button(
             {
               class: "reset-button button",
-              onclick: () => {},
+              onclick: () => {
+                console.log("Resolving...");
+                hexResolver(
+                  aspectNum.map((v) => v),
+                  frames.map((v) => v)
+                );
+              },
               disabled: isDisabled.val,
             },
             "resolve"
