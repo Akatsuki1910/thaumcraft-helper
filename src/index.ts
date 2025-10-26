@@ -42,7 +42,8 @@ const Main = () => {
   const frames = vanX.reactive<number[]>(
     [...Array(HEX_WIDTH)].map(() => Array(HEX_HEIGHT).fill(-2)).flat()
   );
-  let answers = van.state<ReturnType<typeof hexResolver>>([]);
+  let answers = van.state<{ frame: number[]; steps: number }[]>([]);
+  let isResolving = van.state(false);
 
   let progressData = van.state<{ step: number; all: number; now: number }>({
     step: 0,
@@ -132,19 +133,30 @@ const Main = () => {
         () =>
           button(
             {
-              onclick: () => {
-                answers.val = hexResolver(
-                  aspectNum.map((v) => v),
-                  frames.map((v) => v),
-                  (step, all, now) => {
-                    // console.log("Progress:", { step, all, now });
-                    progressData.val = { step, all, now };
-                  }
-                );
+              onclick: async () => {
+                if (isResolving.val) return;
+
+                isResolving.val = true;
+                // プログレスをリセット
+                progressData.val = { step: 0, all: 0, now: 0 };
+
+                try {
+                  answers.val = await hexResolver(
+                    aspectNum.map((v) => v),
+                    frames.map((v) => v),
+                    (step, all, now) => {
+                      progressData.val = { step, all, now };
+                    }
+                  );
+                } catch (error) {
+                  console.error("Resolver error:", error);
+                } finally {
+                  isResolving.val = false;
+                }
               },
-              disabled: isDisabled.val,
+              disabled: () => isDisabled.val || isResolving.val,
             },
-            "resolve"
+            () => (isResolving.val ? "処理中..." : "resolve")
           ),
 
         button(
@@ -158,8 +170,36 @@ const Main = () => {
           "all 10 up"
         ),
         () =>
-          p(
-            `Progress: ${progressData.val.now} / ${progressData.val.all} (Step: ${progressData.val.step})`
+          div(
+            { class: "progress-section" },
+            isResolving.val || progressData.val.all > 0
+              ? div(
+                  p(
+                    `Step: ${progressData.val.step} | Progress: ${progressData.val.now} / ${progressData.val.all}`
+                  ),
+                  progressData.val.all > 0
+                    ? div(
+                        {
+                          class: "progress-bar-container",
+                        },
+                        div({
+                          class: "progress-bar",
+                          style: `width: ${Math.round(
+                            (progressData.val.now / progressData.val.all) * 100
+                          )}%;`,
+                        }),
+                        div(
+                          {
+                            class: "progress-text",
+                          },
+                          `${Math.round(
+                            (progressData.val.now / progressData.val.all) * 100
+                          )}%`
+                        )
+                      )
+                    : null
+                )
+              : p("Ready")
           ),
         () =>
           div(

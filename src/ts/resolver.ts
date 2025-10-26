@@ -1,7 +1,7 @@
 import { ASPECT_NUM, LINKS_MAP } from "./aspectUti";
 import { HEX_HEIGHT, HEX_WIDTH } from "./hexUtil";
 
-export const hexResolver = (
+export const hexResolver = async (
   aspectNum: number[],
   frames: number[],
   progress: (step: number, all: number, now: number) => void
@@ -112,7 +112,11 @@ export const hexResolver = (
     return nextData;
   };
 
-  const resolveAnswer = (an: number[], f: number[], s: [number, number]) => {
+  const resolveAnswer = async (
+    an: number[],
+    f: number[],
+    s: [number, number]
+  ) => {
     let step = 0;
     let nextData = loopResolveAnswer(an, f, s, step) ?? [];
     while (true) {
@@ -120,13 +124,20 @@ export const hexResolver = (
       if (nextData.length === 0) break;
       const currentData = nextData;
       nextData = [];
-      currentData.forEach((v, l) => {
+
+      for (let l = 0; l < currentData.length; l++) {
+        const v = currentData[l];
         progress(step, currentData.length, l + 1);
+
+        if (l % 10 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
         const res = loopResolveAnswer(v.cpAn, v.cpF, [v.x, v.y], step);
         if (res) {
           nextData.push(...res);
         }
-      });
+      }
     }
   };
 
@@ -159,7 +170,7 @@ export const hexResolver = (
     return nextData;
   };
 
-  resolveAnswer(aspectNum, frames, start);
+  await resolveAnswer(aspectNum, frames, start);
 
   const trueAnswers = [
     ...answer
