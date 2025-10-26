@@ -89,7 +89,10 @@ export const hexResolver = (aspectNum: number[], frames: number[]) => {
   ) => {
     const sd = f[s[0] + s[1] * HEX_WIDTH];
 
-    if (goal.every((g) => goalCheck([...f], g))) {
+    if (
+      goal.some((g) => s[0] === g[0] && s[1] === g[1]) &&
+      goal.every((g) => goalCheck([...f], g))
+    ) {
       answer.push({ frame: f, steps: step });
       return;
     }

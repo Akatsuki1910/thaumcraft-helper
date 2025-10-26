@@ -4,7 +4,7 @@ import { Hex } from "./hex";
 import { ASPECT_NUM } from "./ts/aspectUti";
 import { HEX_WIDTH, HEX_HEIGHT } from "./ts/hexUtil";
 import { hexResolver } from "./ts/resolver";
-const { main, p, div, input, section, button } = van.tags;
+const { main, div, input, section, button } = van.tags;
 
 const ViewHexCell = (
   i: number,
