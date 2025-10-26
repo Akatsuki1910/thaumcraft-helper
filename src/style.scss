@@ -1,13 +1,14 @@
+@use "sass:math";
+
 * {
   margin: 0;
 }
 
 @mixin a($i) {
-  $y: floor($i / 16);
-  background-image: url("./T4aspects.png");
+  $y: math.floor(math.div($i, 16));
+  background-image: url("./aspect/aspect_#{$i}.png");
   width: 32px;
   height: 32px;
-  background-position: ($i * -32px) ($y * -32px);
 }
 
 .container {
@@ -63,11 +64,11 @@
       }
     }
 
-    @for $i from 0 through 55 {
+    @for $i from 1 through 79 {
       &[data-num="#{$i}"] {
         &::after {
           content: "";
-          @include a($i + 1);
+          @include a($i);
           position: absolute;
           top: 50%;
           left: 50%;
@@ -85,7 +86,7 @@
   }
 }
 
-@for $i from 1 through 56 {
+@for $i from 1 through 79 {
   .aspect-#{$i} {
     @include a($i);
 
