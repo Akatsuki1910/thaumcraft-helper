@@ -37,7 +37,9 @@ const ViewHexCell = (
           Math.floor((i - (sizeMinMax?.min.y ?? 0) * HEX_WIDTH) / HEX_WIDTH) *
             82 *
             size +
-          (((i - (sizeMinMax?.min.x ?? 0)) % HEX_WIDTH) % 2) * 40 * size
+          (((i - (sizeMinMax?.min.y ?? 0) * HEX_WIDTH) % HEX_WIDTH) % 2) *
+            40 *
+            size
         }px`,
         left: `${((i - (sizeMinMax?.min.x ?? 0)) % HEX_WIDTH) * 72 * size}px`,
       })
