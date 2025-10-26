@@ -11,7 +11,9 @@ const Main = () => {
       [...Array(55)].map((_, i) => ({
         id: i + 1,
         shape: "circularImage",
-        image: `/aspect/aspect_${i + 1}.png`,
+        image: `${import.meta.env.BUILD_BASE ?? "./"}aspect/aspect_${
+          i + 1
+        }.png`,
       }))
     );
 
