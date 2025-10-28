@@ -28,60 +28,61 @@ export const hexResolver = async (
   }[] = [];
 
   const hexCheck = (
-    s: [number, number],
+    sx: number,
+    sy: number,
     fn: (x: number, y: number) => void
   ) => {
-    if (s[1] > 0) {
-      const x = s[0];
-      const y = s[1] - 1;
+    if (sy > 0) {
+      const x = sx;
+      const y = sy - 1;
       fn(x, y);
     }
 
-    if (s[1] < HEX_HEIGHT - 1) {
-      const x = s[0];
-      const y = s[1] + 1;
+    if (sy < HEX_HEIGHT - 1) {
+      const x = sx;
+      const y = sy + 1;
       fn(x, y);
     }
 
-    if (s[0] < HEX_WIDTH - 1 && s[1] - ((s[0] + 1) % 2) >= 0) {
-      const x = s[0] + 1;
-      const y = s[1] - 1;
+    if (sx < HEX_WIDTH - 1 && sy - ((sx + 1) % 2) >= 0) {
+      const x = sx + 1;
+      const y = sy - 1;
       fn(x, y);
     }
 
-    if (s[0] < HEX_WIDTH - 1) {
-      const x = s[0] + 1;
-      const y = s[1];
+    if (sx < HEX_WIDTH - 1) {
+      const x = sx + 1;
+      const y = sy;
       fn(x, y);
     }
 
-    if (s[0] > 0 && s[1] - ((s[0] - 1) % 2) >= 0) {
-      const x = s[0] - 1;
-      const y = s[1] - 1;
+    if (sx > 0 && sy - ((sx - 1) % 2) >= 0) {
+      const x = sx - 1;
+      const y = sy - 1;
       fn(x, y);
     }
 
-    if (s[0] > 0) {
-      const x = s[0] - 1;
-      const y = s[1];
+    if (sx > 0) {
+      const x = sx - 1;
+      const y = sy;
       fn(x, y);
     }
   };
 
-  const goalCheck = (f: number[], s: [number, number]) => {
-    const sd = f[s[0] + s[1] * HEX_WIDTH];
-    if (s[0] === start[0] && s[1] === start[1]) {
+  const goalCheck = (f: number[], sx: number, sy: number) => {
+    const sd = f[sx + sy * HEX_WIDTH];
+    if (sx === start[0] && sy === start[1]) {
       return true;
     }
 
     let flg = false;
-    hexCheck(s, (x, y) => {
+    hexCheck(sx, sy, (x, y) => {
       if (flg) return;
 
       const d = f[x + y * HEX_WIDTH];
       if (d > 0 && LINKS_MAP.get(sd)?.has(d)) {
-        f[s[0] + s[1] * HEX_WIDTH] = -2;
-        flg = goalCheck(f, [x, y]);
+        f[sx + sy * HEX_WIDTH] = -2;
+        flg = goalCheck(f, x, y);
       }
     });
     return flg;
@@ -90,12 +91,13 @@ export const hexResolver = async (
   const loopResolveAnswer = (
     an: number[],
     f: number[],
-    s: [number, number],
+    sx: number,
+    sy: number,
     step: number
   ) => {
-    const sd = f[s[0] + s[1] * HEX_WIDTH];
+    const sd = f[sx + sy * HEX_WIDTH];
 
-    if (goal.every((g) => goalCheck([...f], g))) {
+    if (goal.every((g) => goalCheck([...f], g[0], g[1]))) {
       answer.push({ aspect: an, frame: f, steps: step });
       return;
     }
@@ -104,7 +106,7 @@ export const hexResolver = async (
 
     const nextData: { cpAn: number[]; cpF: number[]; x: number; y: number }[] =
       [];
-    hexCheck(s, (x, y) => {
+    hexCheck(sx, sy, (x, y) => {
       const d = commonResolveAnswer(x, y, sd, an, f);
       nextData.push(...d);
     });
@@ -115,10 +117,11 @@ export const hexResolver = async (
   const resolveAnswer = async (
     an: number[],
     f: number[],
-    s: [number, number]
+    sx: number,
+    sy: number
   ) => {
     let step = 0;
-    let nextData = loopResolveAnswer(an, f, s, step) ?? [];
+    let nextData = loopResolveAnswer(an, f, sx, sy, step) ?? [];
     while (true) {
       step++;
       if (nextData.length === 0) break;
@@ -133,7 +136,7 @@ export const hexResolver = async (
           await new Promise((resolve) => setTimeout(resolve, 0));
         }
 
-        const res = loopResolveAnswer(v.cpAn, v.cpF, [v.x, v.y], step);
+        const res = loopResolveAnswer(v.cpAn, v.cpF, v.x, v.y, step);
         if (res) {
           nextData.push(...res);
         }
@@ -170,7 +173,7 @@ export const hexResolver = async (
     return nextData;
   };
 
-  await resolveAnswer(aspectNum, frames, start);
+  await resolveAnswer(aspectNum, frames, start[0], start[1]);
 
   const trueAnswers = [
     ...answer
