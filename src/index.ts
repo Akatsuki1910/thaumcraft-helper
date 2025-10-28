@@ -225,6 +225,7 @@ const Main = () => {
               onclick: async () => {
                 if (isResolving.val) return;
 
+                answers.val = [];
                 isResolving.val = true;
                 progressData.val = { step: 0, all: 0, now: 0 };
                 startMemoryMonitoring(true); // 処理中は頻繁に監視
