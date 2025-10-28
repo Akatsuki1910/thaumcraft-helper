@@ -88,13 +88,6 @@ export const hexResolver = async (
     return flg;
   };
 
-  let nextData: {
-    cpAn: Parameters<typeof resolveAnswer>[0];
-    cpF: Parameters<typeof resolveAnswer>[1];
-    x: number;
-    y: number;
-  }[] = [];
-
   const loopResolveAnswer = (
     an: number[],
     f: number[],
@@ -111,9 +104,14 @@ export const hexResolver = async (
 
     if (answer.length > 0) return;
 
+    const nextData: { cpAn: number[]; cpF: number[]; x: number; y: number }[] =
+      [];
     hexCheck(sx, sy, (x, y) => {
-      commonResolveAnswer(x, y, sd, an, f);
+      const d = commonResolveAnswer(x, y, sd, an, f);
+      nextData.push(...d);
     });
+
+    return nextData;
   };
 
   const resolveAnswer = async (
@@ -122,27 +120,26 @@ export const hexResolver = async (
     sx: number,
     sy: number
   ) => {
-    let step = 1;
-    nextData.length = 0;
-    loopResolveAnswer(an, f, sx, sy, step);
-
+    let step = 0;
+    let nextData = loopResolveAnswer(an, f, sx, sy, step) ?? [];
     while (true) {
       step++;
       if (nextData.length === 0) break;
       const currentData = nextData;
-      // nextData = Array(currentData.length * 6);
       nextData = [];
 
       for (let l = 0; l < currentData.length; l++) {
         const v = currentData[l];
-        if (!v) continue;
         progress(step, currentData.length, l + 1);
 
         if (l % 1000 === 0) {
           await new Promise((resolve) => setTimeout(resolve, 0));
         }
 
-        loopResolveAnswer(v.cpAn, v.cpF, v.x, v.y, step);
+        const res = loopResolveAnswer(v.cpAn, v.cpF, v.x, v.y, step);
+        if (res) {
+          nextData.push(...res);
+        }
       }
     }
   };
@@ -154,6 +151,9 @@ export const hexResolver = async (
     an: Parameters<typeof resolveAnswer>[0],
     f: Parameters<typeof resolveAnswer>[1]
   ) => {
+    const nextData: { cpAn: typeof an; cpF: typeof f; x: number; y: number }[] =
+      [];
+
     const d = f[x + y * HEX_WIDTH];
     if (d === -1) {
       for (let i = 0; i < an.length; i++) {
@@ -169,11 +169,11 @@ export const hexResolver = async (
         }
       }
     }
+
+    return nextData;
   };
 
   await resolveAnswer(aspectNum, frames, start[0], start[1]);
-
-  console.log("解答数:", answer.length);
 
   const trueAnswers = [
     ...answer
