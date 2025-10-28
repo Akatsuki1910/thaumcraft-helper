@@ -21,6 +21,13 @@ export const hexResolver = async (
     }
   }
 
+  // let stepMem: {
+  //   an: number[];
+  //   f: number[];
+  //   sx: number;
+  //   sy: number;
+  // }[] = [];
+
   const answer: {
     aspect: number[];
     frame: number[];
@@ -70,6 +77,7 @@ export const hexResolver = async (
   };
 
   const goalCheck = (f: number[], sx: number, sy: number) => {
+    // console.log("goalCheck", sx, sy);
     const sd = f[sx + sy * HEX_WIDTH];
     if (sx === start[0] && sy === start[1]) {
       return true;
@@ -88,6 +96,16 @@ export const hexResolver = async (
     return flg;
   };
 
+  let nextData: Record<
+    number,
+    {
+      cpAn: Parameters<typeof resolveAnswer>[0];
+      cpF: Parameters<typeof resolveAnswer>[1];
+      x: number;
+      y: number;
+    }[]
+  > = {};
+
   const loopResolveAnswer = (
     an: number[],
     f: number[],
@@ -98,50 +116,50 @@ export const hexResolver = async (
     const sd = f[sx + sy * HEX_WIDTH];
 
     if (goal.every((g) => goalCheck([...f], g[0], g[1]))) {
-      answer.push({ aspect: an, frame: f, steps: step });
+      answer.push({ aspect: [...an], frame: [...f], steps: step });
       return;
     }
 
-    if (answer.length > 0) return;
+    // if (answer.length > 0) return;
 
-    const nextData: { cpAn: number[]; cpF: number[]; x: number; y: number }[] =
-      [];
+    // const nextData: { cpAn: number[]; cpF: number[]; x: number; y: number }[] =
+    //   [];
     hexCheck(sx, sy, (x, y) => {
-      const d = commonResolveAnswer(x, y, sd, an, f);
-      nextData.push(...d);
+      commonResolveAnswer(x, y, sd, an, f, step);
     });
 
-    return nextData;
+    // return nextData;
   };
 
   const resolveAnswer = async (
     an: number[],
     f: number[],
     sx: number,
-    sy: number
+    sy: number,
+    step: number = 0
   ) => {
-    let step = 0;
-    let nextData = loopResolveAnswer(an, f, sx, sy, step) ?? [];
-    while (true) {
-      step++;
-      if (nextData.length === 0) break;
-      const currentData = nextData;
-      nextData = [];
+    // stepMem.push({ an, f, sx, sy });
 
-      for (let l = 0; l < currentData.length; l++) {
-        const v = currentData[l];
-        progress(step, currentData.length, l + 1);
+    loopResolveAnswer(an, f, sx, sy, step);
 
-        if (l % 1000 === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
-
-        const res = loopResolveAnswer(v.cpAn, v.cpF, v.x, v.y, step);
-        if (res) {
-          nextData.push(...res);
-        }
+    for (let l = 0; l < (nextData[step] ?? []).length; l++) {
+      const v = nextData[step][l];
+      // console.log("resolveAnswer", v);
+      progress(step, nextData[step].length, l + 1);
+      if (l % 10 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
+
+      resolveAnswer(v.cpAn, v.cpF, v.x, v.y, step + 1);
     }
+
+    // for (let l = 0; l < (nextData[step] ?? []).length; l++) {
+    //   const v = nextData[step][l];
+    //   v.cpAn = null;
+    //   v.cpF = null;
+    // }
+    // nextData[step] = null;
+    // delete nextData[step];
   };
 
   const commonResolveAnswer = (
@@ -149,10 +167,11 @@ export const hexResolver = async (
     y: number,
     sd: number,
     an: Parameters<typeof resolveAnswer>[0],
-    f: Parameters<typeof resolveAnswer>[1]
+    f: Parameters<typeof resolveAnswer>[1],
+    step: number
   ) => {
-    const nextData: { cpAn: typeof an; cpF: typeof f; x: number; y: number }[] =
-      [];
+    // const nextData: { cpAn: typeof an; cpF: typeof f; x: number; y: number }[] =
+    //   [];
 
     const d = f[x + y * HEX_WIDTH];
     if (d === -1) {
@@ -164,7 +183,12 @@ export const hexResolver = async (
             cpAn[i]--;
             const cpF = [...f];
             cpF[x + y * HEX_WIDTH] = ASPECT_NUM[i];
-            nextData.push({ cpAn, cpF, x, y });
+            // nextData.push({ cpAn, cpF, x, y });
+
+            if (nextData[step] === undefined) {
+              nextData[step] = [];
+            }
+            nextData[step].push({ cpAn, cpF, x, y });
           }
         }
       }
