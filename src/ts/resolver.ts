@@ -104,18 +104,11 @@ export const hexResolver = async (
 
     if (answer.length > 0) return;
 
-    const nextData: Set<{
-      cpAn: number[];
-      cpF: number[];
-      x: number;
-      y: number;
-    }> = new Set();
-
+    const nextData: { cpAn: number[]; cpF: number[]; x: number; y: number }[] =
+      [];
     hexCheck(sx, sy, (x, y) => {
       const d = commonResolveAnswer(x, y, sd, an, f);
-      for (const v of d) {
-        nextData.add(v);
-      }
+      nextData.push(...d);
     });
 
     return nextData;
@@ -131,9 +124,9 @@ export const hexResolver = async (
     let nextData = loopResolveAnswer(an, f, sx, sy, step) ?? [];
     while (true) {
       step++;
-      const currentData = [...nextData.values()];
-      if (currentData.length === 0) break;
-      nextData = new Set();
+      if (nextData.length === 0) break;
+      const currentData = nextData;
+      nextData = [];
 
       for (let l = 0; l < currentData.length; l++) {
         const v = currentData[l];
@@ -145,9 +138,7 @@ export const hexResolver = async (
 
         const res = loopResolveAnswer(v.cpAn, v.cpF, v.x, v.y, step);
         if (res) {
-          for (const nv of res) {
-            nextData.add(nv);
-          }
+          nextData.push(...res);
         }
       }
     }
@@ -160,12 +151,8 @@ export const hexResolver = async (
     an: Parameters<typeof resolveAnswer>[0],
     f: Parameters<typeof resolveAnswer>[1]
   ) => {
-    const nextData: Set<{
-      cpAn: typeof an;
-      cpF: typeof f;
-      x: number;
-      y: number;
-    }> = new Set();
+    const nextData: { cpAn: typeof an; cpF: typeof f; x: number; y: number }[] =
+      [];
 
     const d = f[x + y * HEX_WIDTH];
     if (d === -1) {
@@ -177,7 +164,7 @@ export const hexResolver = async (
             cpAn[i]--;
             const cpF = [...f];
             cpF[x + y * HEX_WIDTH] = ASPECT_NUM[i];
-            nextData.add({ cpAn, cpF, x, y });
+            nextData.push({ cpAn, cpF, x, y });
           }
         }
       }
