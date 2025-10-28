@@ -4,7 +4,16 @@ import { Hex } from "./hex";
 import { ASPECT_NUM } from "./ts/aspectUti";
 import { HEX_WIDTH, HEX_HEIGHT } from "./ts/hexUtil";
 import { hexResolver } from "./ts/resolver";
-const { main, p, div, input, section, button } = van.tags;
+const { main, p, div, input, section, button, span } = van.tags;
+
+// メモリサイズを人間が読みやすい形式に変換
+const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
 
 const ViewHexCell = (
   i: number,
@@ -66,6 +75,50 @@ const Main = () => {
     all: 0,
     now: 0,
   });
+
+  // メモリ使用量の状態管理
+  let memoryData = van.state<{
+    used: number;
+    total: number;
+    usedHeap: number;
+    totalHeap: number;
+  }>({
+    used: 0,
+    total: 0,
+    usedHeap: 0,
+    totalHeap: 0,
+  });
+
+  // メモリ監視を定期的に実行
+  let memoryInterval: NodeJS.Timeout | number;
+  const updateMemoryUsage = () => {
+    if ("memory" in performance) {
+      const memory = (performance as any).memory;
+      memoryData.val = {
+        used: memory.usedJSHeapSize,
+        total: memory.totalJSHeapSize,
+        usedHeap: memory.usedJSHeapSize,
+        totalHeap: memory.jsHeapSizeLimit,
+      };
+    } else {
+      // メモリAPIが使用できない場合のフォールバック
+      memoryData.val = {
+        used: 0,
+        total: 0,
+        usedHeap: 0,
+        totalHeap: 0,
+      };
+    }
+  };
+
+  // 通常は1秒ごと、処理中は500msごとにメモリ使用量を更新
+  const startMemoryMonitoring = (intensive = false) => {
+    if (memoryInterval) clearInterval(memoryInterval);
+    memoryInterval = setInterval(updateMemoryUsage, intensive ? 500 : 1000);
+  };
+
+  startMemoryMonitoring();
+  updateMemoryUsage(); // 初回実行
 
   const sizeMinMax = vanX.reactive<{
     min: {
@@ -174,6 +227,7 @@ const Main = () => {
 
                 isResolving.val = true;
                 progressData.val = { step: 0, all: 0, now: 0 };
+                startMemoryMonitoring(true); // 処理中は頻繁に監視
 
                 for (let i = 0; i < frames.length; i++) {
                   const x = i % HEX_WIDTH;
@@ -204,12 +258,14 @@ const Main = () => {
                     frames.map((v) => v),
                     (step, all, now) => {
                       progressData.val = { step, all, now };
+                      updateMemoryUsage(); // プログレス更新時にもメモリを更新
                     }
                   );
                 } catch (error) {
                   console.error("Resolver error:", error);
                 } finally {
                   isResolving.val = false;
+                  startMemoryMonitoring(false); // 処理完了後は通常の監視間隔に戻す
                 }
               },
               disabled: () => isDisabled.val || isResolving.val,
@@ -267,6 +323,55 @@ const Main = () => {
                     : null
                 )
               : p("Ready")
+          ),
+        () =>
+          div(
+            { class: "progress-section memory-info" },
+            p("Memory Usage"),
+            div(
+              p(
+                `Heap: ${formatBytes(memoryData.val.usedHeap)} / ${formatBytes(
+                  memoryData.val.totalHeap
+                )}`
+              ),
+              memoryData.val.totalHeap > 0
+                ? div(
+                    {
+                      class: "progress-bar-container",
+                    },
+                    div({
+                      class: "progress-bar",
+                      style: `width: ${Math.round(
+                        (memoryData.val.usedHeap / memoryData.val.totalHeap) *
+                          100
+                      )}%; background-color: ${
+                        memoryData.val.usedHeap / memoryData.val.totalHeap > 0.8
+                          ? "#f44336"
+                          : memoryData.val.usedHeap / memoryData.val.totalHeap >
+                            0.6
+                          ? "#ff9800"
+                          : "#2196f3"
+                      };`,
+                    }),
+                    div(
+                      {
+                        class: "progress-text",
+                      },
+                      `${Math.round(
+                        (memoryData.val.usedHeap / memoryData.val.totalHeap) *
+                          100
+                      )}%`
+                    )
+                  )
+                : div(
+                    { style: "color: #999; font-style: italic;" },
+                    "Memory information not available"
+                  ),
+              p(
+                { style: "font-size: 12px; color: #666; margin-top: 5px;" },
+                `Total JS Heap: ${formatBytes(memoryData.val.total)}`
+              )
+            )
           ),
         () =>
           div(

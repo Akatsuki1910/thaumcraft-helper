@@ -129,7 +129,7 @@ export const hexResolver = async (
         const v = currentData[l];
         progress(step, currentData.length, l + 1);
 
-        if (l % 10 === 0) {
+        if (l % 1000 === 0) {
           await new Promise((resolve) => setTimeout(resolve, 0));
         }
 
