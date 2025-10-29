@@ -13,4 +13,11 @@ export default defineConfig({
       },
     },
   },
+  server: {
+    fs: {
+      // WASMファイルへのアクセスを許可
+      allow: [".."],
+    },
+  },
+  assetsInclude: ["**/*.wasm"], // WASMファイルをアセットとして含める
 });

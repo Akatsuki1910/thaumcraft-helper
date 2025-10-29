@@ -4,6 +4,8 @@
   "module": "./src/index.ts",
   "scripts": {
     "build": "tsc && vite build",
+    "build:wasm": "sh ./src/go/build-wasm.sh",
+    "build:wasm:win": "cd ./src/go && GOOS=js GOARCH=wasm go build -o ../public/wasm/resolver.wasm ./wasm/main.go",
     "dev": "vite"
   },
   "devDependencies": {

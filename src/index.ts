@@ -3,7 +3,7 @@ import * as vanX from "vanjs-ext";
 import { Hex } from "./hex";
 import { ASPECT_NUM } from "./ts/aspectUti";
 import { HEX_WIDTH, HEX_HEIGHT } from "./ts/hexUtil";
-import { hexResolver } from "./ts/resolver";
+import { goWasmResolver } from "./ts/wasmResolver";
 const { main, p, div, input, section, button, span } = van.tags;
 
 // メモリサイズを人間が読みやすい形式に変換
@@ -254,16 +254,19 @@ const Main = () => {
                 console.log("Size MinMax:", sizeMinMax);
 
                 try {
-                  answers.val = await hexResolver(
+                  // WASM Go リゾルバーを初期化（必要に応じて）
+                  await goWasmResolver.initialize();
+
+                  answers.val = await goWasmResolver.hexResolver(
                     aspectNum.map((v) => v),
                     frames.map((v) => v),
-                    (step, all, now) => {
+                    (step: number, all: number, now: number) => {
                       progressData.val = { step, all, now };
                       updateMemoryUsage(); // プログレス更新時にもメモリを更新
                     }
                   );
                 } catch (error) {
-                  console.error("Resolver error:", error);
+                  console.error("WASM Resolver error:", error);
                 } finally {
                   isResolving.val = false;
                   startMemoryMonitoring(false); // 処理完了後は通常の監視間隔に戻す
@@ -377,7 +380,7 @@ const Main = () => {
         () =>
           div(
             { class: "answer-wrapper" },
-            answers.val.map((v) =>
+            [...answers.val].slice(0, 100).map((v) =>
               div(
                 {
                   class: "hex-display",
