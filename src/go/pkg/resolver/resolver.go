@@ -9,7 +9,9 @@ import (
 )
 
 // ProgressFunc はプログレス報告用の関数型
-type ProgressFunc func(step, all, now int)
+// count: 探索回数, answersFound: 見つかった答えの数
+// この関数はPromiseを返すJavaScript関数であり、完了を待機する必要がある
+type ProgressFunc func(count, answersFound int)
 
 // startGoalInit はフレーム配列からstart位置とgoal位置を初期化する
 func startGoalInit(frames []int) StartGoal {
@@ -115,13 +117,15 @@ func allGoalsReached(frames []int, goals [][2]int, start [2]int) bool {
 }
 
 // HexResolver はメインのリゾルバー関数
-func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress ProgressFunc) ([]FilteredAnswers, error) {
+func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress ProgressFunc) ([]Answer, error) {
 	sg := startGoalInit(frames)
 	start := sg.Start
 	goal := sg.Goal
 
 	var answers []Answer
 	count := 0
+
+	maxSteps := len(aspectNum)
 
 	// commonResolveAnswer は共通の解答処理
 	var commonResolveAnswer func(x, y, sd, step int)
@@ -134,6 +138,11 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 		case <-ctx.Done():
 			return
 		default:
+		}
+
+		// 最大ステップ数制限（無限ループ防止）
+		if step > maxSteps {
+			return
 		}
 
 		if allGoalsReached(frames, goal, start) {
@@ -154,12 +163,14 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 		sd := frames[sx+sy*HexWidth]
 		hexCheck(sx, sy, func(x, y int) {
 			count++
-			if progress != nil {
-				progress(step, 0, count)
+			// 10000回ごとにprogressを更新（Promiseの待機を考慮してより少ない頻度に）
+			if progress != nil && count%10000 == 0 {
+				// progressの引数: count(探索回数), answersFound(見つかった答えの数)
+				progress(count, len(answers))
 			}
 
-			// 1000回ごとにgoroutineの協調的スケジューリング
-			if count%1000 == 0 {
+			// 5000回ごとにgoroutineの協調的スケジューリング
+			if count%5000 == 0 {
 				time.Sleep(0)
 			}
 
@@ -170,19 +181,19 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 	commonResolveAnswer = func(x, y, sd, step int) {
 		d := frames[x+y*HexWidth]
 		if d == -1 {
+			// アスペクト数が0のものをスキップして効率化
 			for i := 0; i < len(aspectNum); i++ {
-				if aspectNum[i] > 0 {
-					if LinksMap[AspectNum[i]] != nil && LinksMap[AspectNum[i]][sd] {
-						if aspectNum[i] == 0 {
-							continue
-						}
+				if aspectNum[i] <= 0 {
+					continue
+				}
 
-						aspectNum[i]--
-						frames[x+y*HexWidth] = AspectNum[i]
-						resolveAnswer(x, y, step)
-						frames[x+y*HexWidth] = d
-						aspectNum[i]++
-					}
+				aspectType := AspectNum[i]
+				if LinksMap[aspectType] != nil && LinksMap[aspectType][sd] {
+					aspectNum[i]--
+					frames[x+y*HexWidth] = aspectType
+					resolveAnswer(x, y, step)
+					frames[x+y*HexWidth] = d
+					aspectNum[i]++
 				}
 			}
 		}
@@ -192,14 +203,8 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 
 	// 最小ステップ数を見つける
 	if len(answers) == 0 {
-		var ans = FilteredAnswers{
-			Frame: answers[0].Frame,
-			Steps: answers[0].Steps,
-		}
-		return []FilteredAnswers{ans}, nil
+		return []Answer{}, nil
 	}
-
-	fmt.Printf("Go: Total answers found: %d\n", len(answers))
 
 	minSteps := math.MaxInt32
 	for _, answer := range answers {
@@ -209,12 +214,11 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 	}
 
 	// 最小ステップ数のものだけをフィルタリング
-	var filteredAnswers []FilteredAnswers
+	var filteredAnswers []Answer
 	aspectMap := make(map[string]Answer)
 
 	for _, answer := range answers {
 		if answer.Steps == minSteps {
-
 			if _, exists := aspectMap[answer.AspectKey]; !exists {
 				aspectMap[answer.AspectKey] = answer
 			}
@@ -222,7 +226,7 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 	}
 
 	for _, answer := range aspectMap {
-		filteredAnswers = append(filteredAnswers, FilteredAnswers{
+		filteredAnswers = append(filteredAnswers, Answer{
 			Frame: answer.Frame,
 			Steps: answer.Steps,
 		})

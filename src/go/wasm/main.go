@@ -14,8 +14,78 @@ func convertProgressFunc(jsFunc js.Value) resolver.ProgressFunc {
 	if jsFunc.IsNull() || jsFunc.IsUndefined() {
 		return nil
 	}
-	return func(step, all, now int) {
-		jsFunc.Invoke(step, all, now)
+
+	return func(count, answersFound int) {
+		if jsFunc.IsNull() || jsFunc.IsUndefined() {
+			return
+		}
+
+		done := make(chan bool, 1)
+		hasCompleted := false
+
+		// panic回復
+		defer func() {
+			if r := recover(); r != nil {
+				if !hasCompleted {
+					select {
+					case done <- true:
+					default:
+					}
+				}
+			}
+		}()
+
+		// JavaScript関数を呼び出し
+		result := jsFunc.Invoke(count, answersFound)
+
+		// 結果がPromiseかどうかチェック
+		if !result.IsNull() && !result.IsUndefined() {
+			// Promiseのthenメソッドが存在するかチェック
+			if then := result.Get("then"); !then.IsUndefined() && !then.IsNull() {
+				// Promiseの場合、完了を待機
+				successCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					if !hasCompleted {
+						hasCompleted = true
+						select {
+						case done <- true:
+						default:
+						}
+					}
+					return nil
+				})
+
+				errorCallback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					if !hasCompleted {
+						hasCompleted = true
+						select {
+						case done <- true:
+						default:
+						}
+					}
+					return nil
+				})
+
+				// 正しくPromiseのthen/catchを設定
+				result.Call("then", successCallback, errorCallback)
+
+				// 最大500msまで待機（UIの応答性を保つため）
+				select {
+				case <-done:
+					return
+				case <-time.After(500 * time.Millisecond):
+					if !hasCompleted {
+						hasCompleted = true
+					}
+					return
+				}
+			} else {
+				// Promiseでない場合はそのまま返す
+				return
+			}
+		} else {
+			// 結果がnullまたはundefinedの場合
+			return
+		}
 	}
 }
 
@@ -57,14 +127,11 @@ func hexResolverWrapper() js.Func {
 			go func() {
 				defer func() {
 					if r := recover(); r != nil {
-						fmt.Printf("Recovered in hexResolverWrapper: %v\n", r)
 						reject.Invoke(js.ValueOf(map[string]interface{}{
 							"error": fmt.Sprintf("Panic: %v", r),
 						}))
 					}
 				}()
-
-				fmt.Printf("Go: Starting hexResolver with aspectNum=%v, frames length=%d\n", aspectNum, len(frames))
 
 				// タイムアウト付きコンテキスト（30秒）
 				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -73,18 +140,14 @@ func hexResolverWrapper() js.Func {
 				// hexResolverを実行
 				answers, err := resolver.HexResolver(ctx, aspectNum, frames, progress)
 				if err != nil {
-					fmt.Printf("Go: hexResolver error: %v\n", err)
 					reject.Invoke(js.ValueOf(map[string]interface{}{
 						"error": err.Error(),
 					}))
 					return
 				}
 
-				fmt.Printf("Go: hexResolver completed with %d answers\n", len(answers))
-
 				// 空の結果の場合の処理
 				if len(answers) == 0 {
-					fmt.Println("Go: No answers found, returning empty array")
 					resolve.Invoke(js.ValueOf([]interface{}{}))
 					return
 				}
@@ -94,7 +157,6 @@ func hexResolverWrapper() js.Func {
 				for i, answer := range answers {
 					// nilチェック
 					if answer.Frame == nil {
-						fmt.Printf("Go: Warning - answer %d has nil frame\n", i)
 						continue
 					}
 
@@ -110,12 +172,9 @@ func hexResolverWrapper() js.Func {
 					}
 				}
 
-				fmt.Printf("Go: Converting %d results to JS format\n", len(result))
-
 				// 結果を安全にJavaScriptに変換
 				defer func() {
 					if r := recover(); r != nil {
-						fmt.Printf("Panic during JS conversion: %v\n", r)
 						reject.Invoke(js.ValueOf(map[string]interface{}{
 							"error": fmt.Sprintf("JS conversion failed: %v", r),
 						}))

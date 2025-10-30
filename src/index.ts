@@ -70,11 +70,16 @@ const Main = () => {
   let answers = van.state<{ frame: number[]; steps: number }[]>([]);
   let isResolving = van.state(false);
 
-  let progressData = van.state<{ step: number; all: number; now: number }>({
-    step: 0,
-    all: 0,
-    now: 0,
+  let progressData = van.state<{ count: number; answersFound: number }>({
+    count: 0,
+    answersFound: 0,
   });
+
+  // Progress更新用の専用関数
+  const updateProgressDisplay = (count: number, answersFound: number) => {
+    // VanJSのstateを更新
+    progressData.val = { count, answersFound };
+  };
 
   // メモリ使用量の状態管理
   let memoryData = van.state<{
@@ -227,7 +232,7 @@ const Main = () => {
 
                 answers.val = [];
                 isResolving.val = true;
-                progressData.val = { step: 0, all: 0, now: 0 };
+                updateProgressDisplay(0, 0);
                 startMemoryMonitoring(true); // 処理中は頻繁に監視
 
                 for (let i = 0; i < frames.length; i++) {
@@ -251,22 +256,31 @@ const Main = () => {
                   }
                 }
 
-                console.log("Size MinMax:", sizeMinMax);
-
                 try {
                   // WASM Go リゾルバーを初期化（必要に応じて）
                   await goWasmResolver.initialize();
+                  const progressCallback = async (
+                    count: number,
+                    answersFound: number
+                  ): Promise<void> => {
+                    try {
+                      updateProgressDisplay(count, answersFound);
+                      updateMemoryUsage(); // プログレス更新時にもメモリを更新
+
+                      // 少し待機してUIの更新を確実にする
+                      await new Promise((resolve) => setTimeout(resolve, 0));
+                    } catch (error) {
+                      console.error("Error in progress callback:", error);
+                    }
+                  };
 
                   answers.val = await goWasmResolver.hexResolver(
                     aspectNum.map((v) => v),
                     frames.map((v) => v),
-                    (step: number, all: number, now: number) => {
-                      progressData.val = { step, all, now };
-                      updateMemoryUsage(); // プログレス更新時にもメモリを更新
-                    }
+                    progressCallback
                   );
                 } catch (error) {
-                  console.error("WASM Resolver error:", error);
+                  // 何もしない
                 } finally {
                   isResolving.val = false;
                   startMemoryMonitoring(false); // 処理完了後は通常の監視間隔に戻す
@@ -299,32 +313,14 @@ const Main = () => {
         () =>
           div(
             { class: "progress-section" },
-            isResolving.val || progressData.val.all > 0
-              ? div(
-                  p(
-                    `Step: ${progressData.val.step} | Progress: ${progressData.val.now} / ${progressData.val.all}`
-                  ),
-                  progressData.val.all > 0
-                    ? div(
-                        {
-                          class: "progress-bar-container",
-                        },
-                        div({
-                          class: "progress-bar",
-                          style: `width: ${Math.round(
-                            (progressData.val.now / progressData.val.all) * 100
-                          )}%;`,
-                        }),
-                        div(
-                          {
-                            class: "progress-text",
-                          },
-                          `${Math.round(
-                            (progressData.val.now / progressData.val.all) * 100
-                          )}%`
-                        )
-                      )
-                    : null
+            isResolving.val || progressData.val.count > 0
+              ? p(
+                  {
+                    id: "progress-text",
+                  },
+                  `探索: ${progressData.val.count.toLocaleString()} | 答え: ${
+                    progressData.val.answersFound
+                  }`
                 )
               : p("Ready")
           ),
