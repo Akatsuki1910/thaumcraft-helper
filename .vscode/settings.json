@@ -1,5 +1,11 @@
 {
   "chat.tools.terminal.autoApprove": {
     "/.*/": true
+  },
+  "gopls": {
+    "build.env": {
+      "GOOS": "js",
+      "GOARCH": "wasm"
+    }
   }
 }

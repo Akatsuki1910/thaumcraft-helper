@@ -131,8 +131,7 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 	var commonResolveAnswer func(x, y, sd, step int)
 
 	// resolveAnswer は再帰的に解を探索する
-	var resolveAnswer func(sx, sy, step int)
-	resolveAnswer = func(sx, sy, step int) {
+	var resolveAnswer = func(sx, sy, step int) {
 		// コンテキストのキャンセルチェック
 		select {
 		case <-ctx.Done():
@@ -200,6 +199,8 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 	}
 
 	resolveAnswer(start[0], start[1], 0)
+	progress(count, len(answers))
+	time.Sleep(0)
 
 	// 最小ステップ数を見つける
 	if len(answers) == 0 {
