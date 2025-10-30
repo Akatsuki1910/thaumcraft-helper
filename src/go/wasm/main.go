@@ -111,14 +111,87 @@ func hexResolverWrapper() js.Func {
 		// framesの変換
 		framesJS := args[1]
 		frames := make([]int, framesJS.Length())
+
+		var emptyFrameCount = 0
 		for i := 0; i < framesJS.Length(); i++ {
 			frames[i] = framesJS.Index(i).Int()
+			if frames[i] == -1 {
+				emptyFrameCount++
+			}
+		}
+
+		// 取り得る最大の探索数を計算
+		// emptyFrameCount個の空きスロットに対する、アスペクト数の順列の概算
+		var allCount = 0
+		if emptyFrameCount > 0 {
+			// アスペクト数の合計を計算
+			totalAspects := 0
+			aspectTypes := 0
+			for i := 0; i < aspectNumJS.Length(); i++ {
+				if aspectNum[i] > 0 {
+					totalAspects += aspectNum[i]
+					aspectTypes++
+				}
+			}
+
+			// 最大探索数の概算計算
+			// 実際の探索は隣接チェックなので、これは上限の目安
+			if totalAspects > 0 && emptyFrameCount > 0 {
+				// 基本的な組み合わせ数の概算
+				// 各空きスロットに配置可能なアスペクト数の積
+				maxCombinations := 1
+				remainingAspects := totalAspects
+
+				for slot := 0; slot < emptyFrameCount && remainingAspects > 0; slot++ {
+					// 各スロットで選択可能なアスペクト数（最大でアスペクト種類数）
+					choices := aspectTypes
+					if choices > remainingAspects {
+						choices = remainingAspects
+					}
+					if choices > 0 {
+						maxCombinations *= choices
+						remainingAspects--
+					}
+
+					// 計算量が膨大になることを防ぐ
+					if maxCombinations > 10000000 { // 1000万を上限
+						maxCombinations = 10000000
+						break
+					}
+				}
+
+				// 隣接チェックによる展開を考慮（約6倍）
+				allCount = maxCombinations * 6
+
+				// デバッグ情報
+				fmt.Printf("Max search estimation: empty=%d, aspects=%d, types=%d, estimate=%d\n",
+					emptyFrameCount, totalAspects, aspectTypes, allCount)
+			}
 		}
 
 		// progress関数の変換（オプション）
 		var progress resolver.ProgressFunc
 		if len(args) > 2 && !args[2].IsNull() && !args[2].IsUndefined() {
-			progress = convertProgressFunc(args[2])
+			originalProgress := convertProgressFunc(args[2])
+			// 最初の呼び出しで最大探索数を通知
+			firstCall := true
+			// allCountを含めた拡張progress関数を作成
+			progress = func(count, answersFound int) {
+				if originalProgress != nil {
+					// 最初の呼び出し時に最大探索数も一緒に渡す
+					if firstCall && allCount > 0 {
+						// JavaScript側のprogress関数に最大探索数を渡すために、
+						// カスタム関数を呼び出す
+						if jsFunc := args[2]; !jsFunc.IsNull() && !jsFunc.IsUndefined() {
+							// maxCountプロパティを設定
+							jsFunc.Set("maxCount", allCount)
+						}
+						fmt.Printf("Starting resolver with estimated max search count: %d\n", allCount)
+						firstCall = false
+					}
+					originalProgress(count, answersFound)
+				}
+			}
 		}
 
 		// Promiseを返すために、Goでgoroutineを使って非同期処理を行う

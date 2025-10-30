@@ -70,15 +70,24 @@ const Main = () => {
   let answers = van.state<{ frame: number[]; steps: number }[]>([]);
   let isResolving = van.state(false);
 
-  let progressData = van.state<{ count: number; answersFound: number }>({
+  let progressData = van.state<{
+    count: number;
+    answersFound: number;
+    maxCount?: number;
+  }>({
     count: 0,
     answersFound: 0,
+    maxCount: undefined,
   });
 
   // Progress更新用の専用関数
-  const updateProgressDisplay = (count: number, answersFound: number) => {
+  const updateProgressDisplay = (
+    count: number,
+    answersFound: number,
+    maxCount?: number
+  ) => {
     // VanJSのstateを更新
-    progressData.val = { count, answersFound };
+    progressData.val = { count, answersFound, maxCount };
   };
 
   // メモリ使用量の状態管理
@@ -232,7 +241,7 @@ const Main = () => {
 
                 answers.val = [];
                 isResolving.val = true;
-                updateProgressDisplay(0, 0);
+                updateProgressDisplay(0, 0, undefined); // maxCountもリセット
                 startMemoryMonitoring(true); // 処理中は頻繁に監視
 
                 for (let i = 0; i < frames.length; i++) {
@@ -261,14 +270,15 @@ const Main = () => {
                   await goWasmResolver.initialize();
                   const progressCallback = async (
                     count: number,
-                    answersFound: number
+                    answersFound: number,
+                    maxCount?: number
                   ): Promise<void> => {
                     try {
-                      updateProgressDisplay(count, answersFound);
+                      updateProgressDisplay(count, answersFound, maxCount);
                       updateMemoryUsage(); // プログレス更新時にもメモリを更新
 
                       // 少し待機してUIの更新を確実にする
-                      await new Promise((resolve) => setTimeout(resolve, 0));
+                      await new Promise((resolve) => setTimeout(resolve, 10));
                     } catch (error) {
                       console.error("Error in progress callback:", error);
                     }
@@ -314,13 +324,56 @@ const Main = () => {
           div(
             { class: "progress-section" },
             isResolving.val || progressData.val.count > 0
-              ? p(
-                  {
-                    id: "progress-text",
-                  },
-                  `探索: ${progressData.val.count.toLocaleString()} | 答え: ${
-                    progressData.val.answersFound
-                  }`
+              ? div(
+                  p(
+                    {
+                      id: "progress-text",
+                    },
+                    () => {
+                      const current = progressData.val.count.toLocaleString();
+                      const answers = progressData.val.answersFound;
+                      const maxCount = progressData.val.maxCount;
+
+                      if (maxCount && maxCount > 0) {
+                        const percentage = (
+                          (progressData.val.count / maxCount) *
+                          100
+                        ).toFixed(1);
+                        const maxCountStr = maxCount.toLocaleString();
+                        return `探索: ${current}/${maxCountStr} (${percentage}%) | 答え: ${answers}`;
+                      } else {
+                        return `探索: ${current} | 答え: ${answers}`;
+                      }
+                    }
+                  ),
+                  // プログレスバーを追加
+                  () => {
+                    const maxCount = progressData.val.maxCount;
+                    if (maxCount && maxCount > 0) {
+                      const percentage = Math.min(
+                        100,
+                        (progressData.val.count / maxCount) * 100
+                      );
+                      return div(
+                        {
+                          class: "progress-bar-container",
+                          style: "margin-top: 8px;",
+                        },
+                        div({
+                          class: "progress-bar",
+                          style: `width: ${percentage}%; background-color: #2196f3; transition: width 0.3s ease;`,
+                        }),
+                        div(
+                          {
+                            class: "progress-text",
+                            style: "font-size: 12px; color: #666;",
+                          },
+                          `${percentage.toFixed(1)}%`
+                        )
+                      );
+                    }
+                    return div();
+                  }
                 )
               : p("Ready")
           ),

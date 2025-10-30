@@ -72,7 +72,11 @@ class GoWasmResolver {
   async hexResolver(
     aspectNum: number[],
     frames: number[],
-    progress?: (count: number, answersFound: number) => Promise<void>
+    progress?: (
+      count: number,
+      answersFound: number,
+      maxCount?: number
+    ) => Promise<void>
   ): Promise<WasmAnswer[]> {
     await this.initialize();
     if (!(globalThis as any).goHexResolver)
@@ -81,8 +85,10 @@ class GoWasmResolver {
     // プログレス関数をPromiseベースでラップ
     const wrappedProgress = progress
       ? async (count: number, answersFound: number): Promise<void> => {
+          // Go側から設定されるmaxCountプロパティを取得
+          const maxCount = (wrappedProgress as any).maxCount;
           // プログレス関数を呼び出してPromiseを返す
-          await Promise.resolve(progress(count, answersFound));
+          await Promise.resolve(progress(count, answersFound, maxCount));
         }
       : undefined;
 
