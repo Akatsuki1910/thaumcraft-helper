@@ -153,11 +153,11 @@ func hexResolverWrapper() js.Func {
 						remainingAspects--
 					}
 
-					// 計算量が膨大になることを防ぐ
-					if maxCombinations > 10000000 { // 1000万を上限
-						maxCombinations = 10000000
-						break
-					}
+					// // 計算量が膨大になることを防ぐ
+					// if maxCombinations > 10000000 { // 1000万を上限
+					// 	maxCombinations = 10000000
+					// 	break
+					// }
 				}
 
 				// 隣接チェックによる展開を考慮（約6倍）
@@ -208,8 +208,8 @@ func hexResolverWrapper() js.Func {
 					}
 				}()
 
-				// タイムアウト付きコンテキスト（30秒）
-				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				// タイムアウト付きコンテキスト（600秒）
+				ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 				defer cancel()
 
 				// hexResolverを実行
