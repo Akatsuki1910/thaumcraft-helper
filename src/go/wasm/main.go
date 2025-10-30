@@ -71,11 +71,13 @@ func convertProgressFunc(jsFunc js.Value) resolver.ProgressFunc {
 				// 最大500msまで待機（UIの応答性を保つため）
 				select {
 				case <-done:
+					time.Sleep(0)
 					return
 				case <-time.After(500 * time.Millisecond):
 					if !hasCompleted {
 						hasCompleted = true
 					}
+					time.Sleep(0)
 					return
 				}
 			} else {

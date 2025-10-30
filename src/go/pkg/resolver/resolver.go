@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"time"
 )
 
 // ProgressFunc はプログレス報告用の関数型
@@ -125,8 +124,6 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 	var answers []Answer
 	count := 0
 
-	maxSteps := len(aspectNum)
-
 	// commonResolveAnswer は共通の解答処理
 	var commonResolveAnswer func(x, y, sd, step int)
 
@@ -137,11 +134,6 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 		case <-ctx.Done():
 			return
 		default:
-		}
-
-		// 最大ステップ数制限（無限ループ防止）
-		if step > maxSteps {
-			return
 		}
 
 		if allGoalsReached(frames, goal, start) {
@@ -166,11 +158,6 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 			if progress != nil && count%10000 == 0 {
 				// progressの引数: count(探索回数), answersFound(見つかった答えの数)
 				progress(count, len(answers))
-			}
-
-			// 5000回ごとにgoroutineの協調的スケジューリング
-			if count%5000 == 0 {
-				time.Sleep(0)
 			}
 
 			commonResolveAnswer(x, y, sd, step+1)
@@ -200,7 +187,6 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 
 	resolveAnswer(start[0], start[1], 0)
 	progress(count, len(answers))
-	time.Sleep(0)
 
 	// 最小ステップ数を見つける
 	if len(answers) == 0 {
