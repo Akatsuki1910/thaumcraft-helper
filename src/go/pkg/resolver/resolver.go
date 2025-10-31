@@ -115,6 +115,8 @@ func allGoalsReached(frames []int, goals [][2]int, start [2]int) bool {
 	return true
 }
 
+var MaxSteps = 15 // 最大ステップ数の制限
+
 // HexResolver はメインのリゾルバー関数
 func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress ProgressFunc) ([]Answer, error) {
 	sg := startGoalInit(frames)
@@ -123,6 +125,7 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 
 	var answers []Answer
 	count := 0
+	currentMinSteps := math.MaxInt32 // 現在見つかっている最小ステップ数
 
 	// commonResolveAnswer は共通の解答処理
 	var commonResolveAnswer func(x, y, sd, step int)
@@ -134,6 +137,15 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 		case <-ctx.Done():
 			return
 		default:
+		}
+
+		// 現在のステップ数が既に見つかっている最小ステップ数を超えている場合は終了
+		if step > currentMinSteps {
+			return
+		}
+
+		if step > MaxSteps {
+			return
 		}
 
 		if allGoalsReached(frames, goal, start) {
@@ -148,6 +160,11 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 				Frame:     copySlice(frames),
 				Steps:     step,
 			})
+
+			// 新しい最小ステップ数を更新
+			if step < currentMinSteps {
+				currentMinSteps = step
+			}
 			return
 		}
 
@@ -155,7 +172,7 @@ func HexResolver(ctx context.Context, aspectNum []int, frames []int, progress Pr
 		hexCheck(sx, sy, func(x, y int) {
 			count++
 			// 10000回ごとにprogressを更新（Promiseの待機を考慮してより少ない頻度に）
-			if progress != nil && count%10000 == 0 {
+			if progress != nil && count%1000 == 0 {
 				// progressの引数: count(探索回数), answersFound(見つかった答えの数)
 				progress(count, len(answers))
 			}
